@@ -1,168 +1,46 @@
-""" import pymupdf
-import os
-
-
-def extract_text_from_pdf(pdf_path):
-    
-    Extract text from a PDF file using PyMuPDF.
-    Returns a list of dictionaries containing
-    source, page number, and extracted text.
-    
-
-    # Check if PDF exists
-    if not os.path.exists(pdf_path):
-        print(f"ERROR: PDF not found at: {pdf_path}")
-        return []
-
-    print(f"Opening PDF: {pdf_path}")
-
-    # Open PDF
-    document = pymupdf.open(pdf_path)
-
-    pages = []
-
-    # Extract text from each page
-    for page_number, page in enumerate(document):
-
-        text = page.get_text()
-
-        if text.strip():
-            pages.append({
-                "source": pdf_path,
-                "page": page_number + 1,
-                "text": text.strip()
-            })
-
-            print(f"Extracted text from page {page_number + 1}")
-
-        else:
-            print(f"No text found on page {page_number + 1}")
-
-    # Close PDF
-    document.close()
-
-    print(f"\nTotal pages with text: {len(pages)}")
-
-    return pages
-
-
-# =========================================================
-# MAIN PROGRAM
-# =========================================================
-
-if __name__ == "__main__":
-
-    # Path to your PDF
-    pdf_path = "data/Tourism.pdf"
-
-    # Extract text
-    pages = extract_text_from_pdf(pdf_path)
-
-    # Display extracted text
-    if pages:
-
-        print("\n" + "=" * 10)
-        print("EXTRACTED PDF TEXT")
-        print("=" * 10)
-
-        for page in pages:
-            print(f"\n--- Page {page['page']} ---")
-            print(page["text"])
-
-    else:
-        print("\nNo text was extracted from the PDF.")
-
- """
-""" import pymupdf
-
-
-pdf_path = "data/Tourism.pdf"
-def extract_text_from_pdf(pdf_path):
-    Extract text from a PDF file using PyMuPDF.
-    document = pymupdf.open(pdf_path)
-
-    pages = []
-
-    for page_number, page in enumerate(document):
-        text = page.get_text()
-
-        if text.strip():
-            pages.append({
-                "source": pdf_path,
-                "page": page_number + 1,
-                "text": text.strip()
-            })
-
-    document.close()
-
-    return pages
-
-
-def create_chunks(pages, chunk_size=1000, overlap=200):
-    chunks = []
-
-    for page in pages:
-        text = page["text"]
-        start = 0
-
-        while start < len(text):
-            end = start + chunk_size
-            chunk_text = text[start:end]
-
-            if chunk_text.strip():
-                chunks.append({
-                    "text": chunk_text.strip(),
-                    "source": page["source"],
-                    "page": page["page"]
-                })
-
-            start += chunk_size - overlap
-
-    return chunks
- """
-
-
-
 import pymupdf
 
 
-# ---------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------
-
-PDF_PATH = "data/Tourism.pdf"
-
-CHUNK_SIZE = 1000
-CHUNK_OVERLAP = 200
+PDF_PATH: str = "data/Tourism.pdf"
+CHUNK_SIZE: int = 512
+CHUNK_OVERLAP: int = 64
 
 
-# ---------------------------------------------------------
-# 1. Extract text from PDF
-# ---------------------------------------------------------
+# --------------------------------------------------
+# 1. Open PDF and extract pages
+# --------------------------------------------------
 
 def extract_text_from_pdf(pdf_path):
-    """
-    Extract text from each page of a PDF using PyMuPDF.
-
-    Returns:
-        List of dictionaries containing:
-        - source
-        - page
-        - text
-    """
 
     document = pymupdf.open(pdf_path)
 
+    print("PDF type:", type(document))
+
+    print(
+        "Total pages:",
+        len(document)
+    )
+
     pages = []
 
-    for page_number, page in enumerate(document):
+    for page_number in range(
+        len(document)
+    ):
+
+        page = document[page_number]
+
         text = page.get_text()
 
         if text.strip():
+
             pages.append({
+
                 "source": pdf_path,
+
                 "page": page_number + 1,
+
                 "text": text.strip()
+
             })
 
     document.close()
@@ -170,146 +48,468 @@ def extract_text_from_pdf(pdf_path):
     return pages
 
 
-# ---------------------------------------------------------
-# 2. Create chunks
-# ---------------------------------------------------------
+# --------------------------------------------------
+# 2. Split text into paragraphs
+# --------------------------------------------------
 
-def create_chunks(pages, chunk_size=1000, overlap=200):
-    """
-    Split page text into overlapping chunks.
+def split_into_paragraphs(text):
 
-    Example:
-        chunk_size = 1000
-        overlap = 200
+    text = text.replace(
+        "\r\n",
+        "\n"
+    )
 
-    Chunk 1: characters 0-999
-    Chunk 2: characters 800-1799
-    Chunk 3: characters 1600-2599
-    """
+    text = text.replace(
+        "\r",
+        "\n"
+    )
 
-    if overlap >= chunk_size:
-        raise ValueError(
-            "overlap must be smaller than chunk_size"
+    lines = text.split("\n")
+
+    paragraphs = []
+
+    current_paragraph = []
+
+    for line in lines:
+
+        line = line.strip()
+
+        if not line:
+
+            if current_paragraph:
+
+                paragraph = " ".join(
+                    current_paragraph
+                )
+
+                paragraphs.append(
+                    paragraph
+                )
+
+                current_paragraph = []
+
+        else:
+
+            current_paragraph.append(
+                line
+            )
+
+    if current_paragraph:
+
+        paragraph = " ".join(
+            current_paragraph
         )
+
+        paragraphs.append(
+            paragraph
+        )
+
+    return paragraphs
+
+
+# --------------------------------------------------
+# 3. Create intelligent chunks
+# --------------------------------------------------
+
+def create_chunks(
+    pages,
+    chunk_size=CHUNK_SIZE,
+    overlap=CHUNK_OVERLAP
+):
 
     chunks = []
 
-    step = chunk_size - overlap
+    chunk_id = 1
 
-    for page in pages:
+    for page_data in pages:
 
-        text = page["text"]
+        page_number = page_data["page"]
 
-        start = 0
+        text = page_data["text"]
 
-        while start < len(text):
+        paragraphs = split_into_paragraphs(
+            text
+        )
 
-            end = start + chunk_size
+        current_chunk = ""
 
-            chunk_text = text[start:end].strip()
+        for paragraph in paragraphs:
 
-            if chunk_text:
+            # --------------------------------------
+            # Large paragraph
+            # --------------------------------------
 
-                chunks.append({
-                    "text": chunk_text,
-                    "source": page["source"],
-                    "page": page["page"]
-                })
+            if len(paragraph) > chunk_size:
 
-            start += step
+                if current_chunk.strip():
+
+                    chunks.append({
+
+                        "chunk_id": chunk_id,
+
+                        "page": page_number,
+
+                        "source": page_data["source"],
+
+                        "text": current_chunk.strip()
+
+                    })
+
+                    chunk_id += 1
+
+                    current_chunk = ""
+
+
+                # Split large paragraph with overlap
+
+                start = 0
+
+                while start < len(paragraph):
+
+                    end = start + chunk_size
+
+                    piece = paragraph[
+                        start:end
+                    ].strip()
+
+                    if piece:
+
+                        chunks.append({
+
+                            "chunk_id": chunk_id,
+
+                            "page": page_number,
+
+                            "source": page_data["source"],
+
+                            "text": piece
+
+                        })
+
+                        chunk_id += 1
+
+
+                    start += (
+                        chunk_size - overlap
+                    )
+
+                continue
+
+
+            # --------------------------------------
+            # First paragraph
+            # --------------------------------------
+
+            if not current_chunk:
+
+                current_chunk = paragraph
+
+                continue
+
+
+            # --------------------------------------
+            # Try adding paragraph
+            # --------------------------------------
+
+            candidate = (
+                current_chunk
+                + "\n\n"
+                + paragraph
+            )
+
+
+            if len(candidate) <= chunk_size:
+
+                current_chunk = candidate
+
+                continue
+
+
+            # --------------------------------------
+            # Save current chunk
+            # --------------------------------------
+
+            chunks.append({
+
+                "chunk_id": chunk_id,
+
+                "page": page_number,
+
+                "source": page_data["source"],
+
+                "text": current_chunk.strip()
+
+            })
+
+            chunk_id += 1
+
+
+            # --------------------------------------
+            # Create 300-character overlap
+            # --------------------------------------
+
+            words = current_chunk.split()
+
+            overlap_words = []
+
+            length = 0
+
+
+            for word in reversed(words):
+
+                word_length = len(word) + 1
+
+                if (
+                    length + word_length
+                    <= overlap
+                ):
+
+                    overlap_words.insert(
+                        0,
+                        word
+                    )
+
+                    length += word_length
+
+                else:
+
+                    break
+
+
+            overlap_text = " ".join(
+                overlap_words
+            )
+
+
+            # --------------------------------------
+            # Start next chunk with overlap
+            # --------------------------------------
+
+            if overlap_text:
+
+                current_chunk = (
+                    overlap_text
+                    + "\n\n"
+                    + paragraph
+                )
+
+            else:
+
+                current_chunk = paragraph
+
+
+        # ------------------------------------------
+        # Save final chunk
+        # ------------------------------------------
+
+        if current_chunk.strip():
+
+            chunks.append({
+
+                "chunk_id": chunk_id,
+
+                "page": page_number,
+
+                "source": page_data["source"],
+
+                "text": current_chunk.strip()
+
+            })
+
+            chunk_id += 1
+
 
     return chunks
 
 
-# ---------------------------------------------------------
-# 3. Print extracted pages
-# ---------------------------------------------------------
+# --------------------------------------------------
+# 4. Check Hill Stations content
+# --------------------------------------------------
 
-def print_pages(pages):
-
-    print("\n")
-    print("=" * 80)
-    print("EXTRACTED PAGES")
-    print("=" * 80)
-
-    print(f"Number of pages: {len(pages)}")
-
-    for page in pages:
-
-        print("\n" + "-" * 80)
-        print(f"Page: {page['page']}")
-        print(f"Source: {page['source']}")
-        print("Text:")
-        print(page["text"])
-
-
-# ---------------------------------------------------------
-# 4. Print chunks
-# ---------------------------------------------------------
-
-def print_chunks(chunks):
+def check_hill_station_chunks(chunks):
 
     print("\n")
+
     print("=" * 80)
-    print("CREATED CHUNKS")
+
+    print(
+        "HILL STATIONS / NATURE TOURISM CHECK"
+    )
+
     print("=" * 80)
 
-    print(f"Number of chunks: {len(chunks)}")
-    print(f"Chunk size: {CHUNK_SIZE}")
-    print(f"Overlap: {CHUNK_OVERLAP}")
 
-    for i, chunk in enumerate(chunks, start=1):
+    keywords = [
 
-        print("\n" + "-" * 80)
+        "hill station",
 
-        print(f"Chunk: {i}")
-        print(f"Page: {chunk['page']}")
-        print(f"Source: {chunk['source']}")
-        print(f"Characters: {len(chunk['text'])}")
+        "mahabaleshwar",
 
-        print("\nText:")
-        print(chunk["text"])
+        "panchgani",
+
+        "lonavala",
+
+        "khandala",
+
+        "matheran",
+
+        "nature tourism"
+
+    ]
 
 
-# ---------------------------------------------------------
+    found = False
+
+
+    for chunk in chunks:
+
+        text_lower = chunk["text"].lower()
+
+        matches = []
+
+
+        for keyword in keywords:
+
+            if keyword in text_lower:
+
+                matches.append(
+                    keyword
+                )
+
+
+        if matches:
+
+            found = True
+
+
+            print("\n")
+
+            print(
+                "Chunk ID:",
+                chunk["chunk_id"]
+            )
+
+            print(
+                "Page:",
+                chunk["page"]
+            )
+
+            print(
+                "Found:",
+                ", ".join(matches)
+            )
+
+            print("\nText:")
+
+            print(
+                chunk["text"]
+            )
+
+            print(
+                "-" * 80
+            )
+
+
+    if not found:
+
+        print(
+            "No relevant Hill Station content found."
+        )
+
+
+# --------------------------------------------------
 # 5. Main
-# ---------------------------------------------------------
+# --------------------------------------------------
 
 def main():
 
     print("=" * 80)
-    print("PDF PROCESSOR")
+
+    print(
+        "TOURISM PDF CHUNKING"
+    )
+
     print("=" * 80)
 
-    print(f"PDF: {PDF_PATH}")
-    print(f"Chunk size: {CHUNK_SIZE}")
-    print(f"Chunk overlap: {CHUNK_OVERLAP}")
 
-    # Extract PDF text
-    pages = extract_text_from_pdf(PDF_PATH)
+    pages = extract_text_from_pdf(
+        PDF_PATH
+    )
 
-    # Check if PDF contains text
-    if not pages:
-        print("\nNo text found in the PDF.")
-        return
 
-    # Print extracted pages
-    print_pages(pages)
+    print(
+        "\nPages extracted:",
+        len(pages)
+    )
 
-    # Create chunks
+
     chunks = create_chunks(
         pages,
         chunk_size=CHUNK_SIZE,
         overlap=CHUNK_OVERLAP
     )
 
-    # Print chunks
-    print_chunks(chunks)
+
+    print(
+        "Total chunks:",
+        len(chunks)
+    )
 
 
-# ---------------------------------------------------------
-# Run program
-# ---------------------------------------------------------
+    print(
+        "Chunk size:",
+        CHUNK_SIZE
+    )
+
+
+    print(
+        "Chunk overlap:",
+        CHUNK_OVERLAP
+    )
+
+
+    check_hill_station_chunks(
+        chunks
+    )
+
+
+    print("\n")
+
+    print("=" * 80)
+
+    print("FIRST 5 CHUNKS")
+
+    print("=" * 80)
+
+
+    for chunk in chunks[:5]:
+
+        print("\n")
+
+        print(
+            "Chunk ID:",
+            chunk["chunk_id"]
+        )
+
+        print(
+            "Page:",
+            chunk["page"]
+        )
+
+        print(
+            "Characters:",
+            len(chunk["text"])
+        )
+
+        print(
+            chunk["text"]
+        )
+
+        print(
+            "-" * 80
+        )
+
 
 if __name__ == "__main__":
+
     main()

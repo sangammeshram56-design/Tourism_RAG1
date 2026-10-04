@@ -1,3 +1,10 @@
+from qdrant_client import QdrantClient
+from qdrant_client.models import (
+    Distance,
+    VectorParams,
+    PointStruct
+)
+
 from app.pdf_processor import (
     extract_text_from_pdf,
     create_chunks
@@ -5,102 +12,260 @@ from app.pdf_processor import (
 
 from app.embeddings import get_embeddings
 
-from app.vector_store import (
-    create_collection,
-    insert_chunks
+from app.config import (
+    QDRANT_URL,
+    QDRANT_COLLECTION
 )
 
 
 PDF_PATH = "data/Tourism.pdf"
 
 
-print("================================")
-print("STEP 1: PDF EXTRACTION")
-print("================================")
+def main():
 
-pages = extract_text_from_pdf(
-    PDF_PATH
-)
+    print("=" * 70)
+    print("INDEXING TOURISM.PDF")
+    print("=" * 70)
 
-print(
-    "Pages extracted:",
-    len(pages)
-)
+    # ------------------------------------------------
+    # 1. Extract PDF text
+    # ------------------------------------------------
+
+    print()
+    print("1. Reading PDF...")
+
+    pages = extract_text_from_pdf(
+        PDF_PATH
+    )
+
+    print(
+        f"Pages extracted: {len(pages)}"
+    )
+
+    # ------------------------------------------------
+    # 2. Create improved chunks
+    # ------------------------------------------------
+
+    print()
+    print("2. Creating chunks...")
+
+    chunks = create_chunks(
+        pages,
+        chunk_size=1600,
+        overlap=400
+    )
+
+    print(
+        f"Chunks created: {len(chunks)}"
+    )
+
+    # ------------------------------------------------
+    # 3. Add chunk IDs
+    # ------------------------------------------------
+
+    for index, chunk in enumerate(chunks):
+
+        chunk["chunk_id"] = index
+
+    # ------------------------------------------------
+    # 4. Check Hill Stations section
+    # ------------------------------------------------
+
+    print()
+    print("3. Checking Hill Stations chunks...")
+
+    hill_station_names = [
+        "Mahabaleshwar",
+        "Panchgani",
+        "Lonavala",
+        "Khandala",
+        "Matheran"
+    ]
+
+    for index, chunk in enumerate(chunks):
+
+        found_names = []
+
+        for name in hill_station_names:
+
+            if name.lower() in chunk["text"].lower():
+
+                found_names.append(name)
+
+        if found_names:
+
+            print()
+            print(
+                f"Chunk {index}"
+            )
+
+            print(
+                f"Page: {chunk['page']}"
+            )
+
+            print(
+                "Found:",
+                ", ".join(found_names)
+            )
+
+            print(
+                chunk["text"]
+            )
+
+            print(
+                "-" * 60
+            )
+
+    # ------------------------------------------------
+    # 5. Create embeddings
+    # ------------------------------------------------
+
+    print()
+    print("4. Creating embeddings...")
+
+    texts = [
+        chunk["text"]
+        for chunk in chunks
+    ]
+
+    embeddings = get_embeddings(
+        texts
+    )
+
+    print(
+        f"Embeddings created: {len(embeddings)}"
+    )
+
+    # ------------------------------------------------
+    # 6. Connect to Qdrant
+    # ------------------------------------------------
+
+    print()
+    print("5. Connecting to Qdrant...")
+
+    client = QdrantClient(
+        url=QDRANT_URL
+    )
+
+    # ------------------------------------------------
+    # 7. Get embedding dimension
+    # ------------------------------------------------
+
+    vector_size = len(
+        embeddings[0]
+    )
+
+    print(
+        f"Embedding dimension: {vector_size}"
+    )
+
+    # ------------------------------------------------
+    # 8. Delete old collection
+    # ------------------------------------------------
+
+    print()
+    print(
+        "6. Removing old Qdrant collection..."
+    )
+
+    try:
+
+        client.delete_collection(
+            collection_name=QDRANT_COLLECTION
+        )
+
+        print(
+            "Old collection deleted."
+        )
+
+    except Exception:
+
+        print(
+            "Old collection did not exist."
+        )
+
+    # ------------------------------------------------
+    # 9. Create new collection
+    # ------------------------------------------------
+
+    print()
+    print(
+        "7. Creating new Qdrant collection..."
+    )
+
+    client.create_collection(
+
+        collection_name=QDRANT_COLLECTION,
+
+        vectors_config=VectorParams(
+
+            size=vector_size,
+
+            distance=Distance.COSINE
+        )
+    )
+
+    # ------------------------------------------------
+    # 10. Create Qdrant points
+    # ------------------------------------------------
+
+    print()
+    print(
+        "8. Preparing Qdrant points..."
+    )
+
+    points = []
+
+    for index, chunk in enumerate(chunks):
+
+        points.append(
+
+            PointStruct(
+
+                id=index,
+
+                vector=embeddings[index],
+
+                payload={
+
+                    "text": chunk["text"],
+
+                    "source": chunk["source"],
+
+                    "page": chunk["page"],
+
+                    "chunk_id": chunk["chunk_id"]
+                }
+            )
+        )
+
+    # ------------------------------------------------
+    # 11. Upload points
+    # ------------------------------------------------
+
+    print()
+    print(
+        "9. Uploading points to Qdrant..."
+    )
+
+    client.upsert(
+
+        collection_name=QDRANT_COLLECTION,
+
+        points=points
+    )
+
+    print()
+    print("=" * 70)
+    print("INDEXING COMPLETED SUCCESSFULLY")
+    print("=" * 70)
+
+    print()
+    print(
+        f"Total chunks indexed: {len(chunks)}"
+    )
 
 
-print("\n================================")
-print("STEP 2: CHUNKING")
-print("================================")
+if __name__ == "__main__":
 
-chunks = create_chunks(
-    pages,
-    chunk_size=1000,
-    overlap=200
-)
-
-print(
-    "Chunks created:",
-    len(chunks)
-)
-
-
-print("\n================================")
-print("STEP 3: EMBEDDINGS")
-print("================================")
-
-texts = [
-    chunk["text"]
-    for chunk in chunks
-]
-
-embeddings = get_embeddings(
-    texts
-)
-
-print(
-    "Embeddings generated:",
-    len(embeddings)
-)
-
-
-vector_size = len(
-    embeddings[0]
-)
-
-print(
-    "Vector size:",
-    vector_size
-)
-
-
-print("\n================================")
-print("STEP 4: QDRANT COLLECTION")
-print("================================")
-
-create_collection(
-    vector_size
-)
-
-print(
-    "Qdrant collection created."
-)
-
-
-print("\n================================")
-print("STEP 5: INSERTING VECTORS")
-print("================================")
-
-insert_chunks(
-    chunks,
-    embeddings
-)
-
-print(
-    "Vectors inserted:",
-    len(chunks)
-)
-
-
-print("\n================================")
-print("INDEXING COMPLETE")
-print("================================")
+    main()

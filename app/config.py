@@ -6,7 +6,7 @@ load_dotenv()
 NUGEN_API_KEY = os.getenv("NUGEN_API_KEY")
 NUGEN_EMBEDDING_MODEL = os.getenv("NUGEN_EMBEDDING_MODEL")
 NUGEN_LLM_MODEL = os.getenv("NUGEN_LLM_MODEL")
-NUGEN_RERANKER_MODEL = os.getenv("NUGEN_RERANKER_MODEL")
+#NUGEN_RERANKER_MODEL = os.getenv("NUGEN_RERANKER_MODEL")
 
 QDRANT_URL = os.getenv(
     "QDRANT_URL",
@@ -27,5 +27,5 @@ if not NUGEN_EMBEDDING_MODEL:
 if not NUGEN_LLM_MODEL:
     raise ValueError("NUGEN_LLM_MODEL is missing in .env")
 
-if not NUGEN_RERANKER_MODEL:
-    raise ValueError("NUGEN_RERANKER_MODEL is missing in .env")
+#if not NUGEN_RERANKER_MODEL:
+#    raise ValueError("NUGEN_RERANKER_MODEL is missing in .env")

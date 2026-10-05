@@ -2,7 +2,7 @@ import pymupdf
 
 
 PDF_PATH: str = "data/Tourism.pdf"
-CHUNK_SIZE: int = 512
+CHUNK_SIZE: int = 256
 CHUNK_OVERLAP: int = 64
 
 

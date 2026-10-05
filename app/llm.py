@@ -12,24 +12,13 @@ NUGEN_CHAT_URL = (
 )
 
 
-# =========================================
-# HEADERS
-# =========================================
-
 def get_headers():
 
     return {
-        "Authorization":
-            f"Bearer {NUGEN_API_KEY}",
-
-        "Content-Type":
-            "application/json"
+        "Authorization": f"Bearer {NUGEN_API_KEY}",
+        "Content-Type": "application/json"
     }
 
-
-# =========================================
-# EXTRACT ANSWER
-# =========================================
 
 def extract_answer(data):
 
@@ -39,62 +28,40 @@ def extract_answer(data):
 
         if "message" in choice:
 
-            return (
-                choice["message"]["content"]
-                .strip()
-            )
+            return choice["message"]["content"].strip()
 
         if "text" in choice:
 
-            return (
-                choice["text"]
-                .strip()
-            )
+            return choice["text"].strip()
 
     raise ValueError(
         f"Unexpected Nugen response: {data}"
     )
 
 
-# =========================================
-# NORMAL ANSWER
-# =========================================
-
 def generate_answer(prompt):
 
     payload = {
-
-        "model":
-            NUGEN_LLM_MODEL,
+        "model": NUGEN_LLM_MODEL,
 
         "messages": [
-
             {
                 "role": "user",
-
                 "content": prompt
             }
-
         ],
 
-        "max_tokens":
-            300,
+        "max_tokens": 100,
 
-        "temperature":
-            0.2,
+        "temperature": 0.2,
 
-        "stream":
-            False
+        "stream": False
     }
 
     response = requests.post(
-
         NUGEN_CHAT_URL,
-
         headers=get_headers(),
-
         json=payload,
-
         timeout=120
     )
 
@@ -102,57 +69,37 @@ def generate_answer(prompt):
 
     data = response.json()
 
-    return extract_answer(
-        data
-    )
+    return extract_answer(data)
 
-
-# =========================================
-# STREAMING ANSWER
-# =========================================
 
 def stream_answer(prompt):
 
     payload = {
-
-        "model":
-            NUGEN_LLM_MODEL,
+        "model": NUGEN_LLM_MODEL,
 
         "messages": [
-
             {
                 "role": "user",
-
                 "content": prompt
             }
-
         ],
 
-        "max_tokens":
-            300,
+        "max_tokens": 100,
 
-        "temperature":
-            0.2,
+        "temperature": 0.2,
 
-        "stream":
-            True
+        "stream": True
     }
 
     response = requests.post(
-
         NUGEN_CHAT_URL,
-
         headers=get_headers(),
-
         json=payload,
-
         stream=True,
-
         timeout=120
     )
 
     response.raise_for_status()
-
 
     for line in response.iter_lines(
         decode_unicode=True
@@ -161,18 +108,14 @@ def stream_answer(prompt):
         if not line:
             continue
 
-
         if line.startswith("data:"):
 
             data_text = line[
                 len("data:"):
             ].strip()
 
-
             if data_text == "[DONE]":
-
                 break
-
 
             try:
 
@@ -184,18 +127,10 @@ def stream_answer(prompt):
 
                 continue
 
-
             if "choices" not in data:
-
                 continue
 
-
             choice = data["choices"][0]
-
-
-            # ---------------------------------
-            # OpenAI-style streaming response
-            # ---------------------------------
 
             if "delta" in choice:
 
@@ -206,18 +141,11 @@ def stream_answer(prompt):
                 )
 
                 if content:
-
                     yield content
-
-
-            # ---------------------------------
-            # Alternative text response
-            # ---------------------------------
 
             elif "text" in choice:
 
                 content = choice["text"]
 
                 if content:
-
                     yield content

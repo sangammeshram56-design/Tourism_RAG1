@@ -274,12 +274,24 @@ Tourism_RAG/
 The Tourism RAG system can be used for questions such as:
 
 ```text
-1. What are the best places to visit in Goa?
+1. What are the best places to visit in Nashik?
 
-2. What are the popular tourist attractions in Rajasthan?
+2. What are the popular tourist attractions in Maharashtra?
 
-3. What is the best time to visit Kerala?
+3. What is the best time to visit Mumbai?
 
 The response depends on the information available in the project's knowledge base.
 
 ---
+
+
+
+
+
+
+
+
+RAG Questions
+What are the major types of tourism available in Maharashtra?
+
+What are the major challenges faced by tourism development in Maharashtra?

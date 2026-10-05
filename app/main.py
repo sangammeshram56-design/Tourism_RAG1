@@ -15,14 +15,39 @@ app = FastAPI(
 )
 
 
+# =========================
+# REQUEST MODEL
+# =========================
+
 class QuestionRequest(BaseModel):
     question: str
 
 
+# =========================
+# TOP 3 CHUNK MODEL
+# =========================
+
+class RetrievedChunk(BaseModel):
+    rank: int
+    page: int
+    source: str
+    score: float
+    text: str
+
+
+# =========================
+# RESPONSE MODEL
+# =========================
+
 class QueryResponse(BaseModel):
     question: str
     answer: str
+    reranked_chunks: list[RetrievedChunk]
 
+
+# =========================
+# ROOT
+# =========================
 
 @app.get("/")
 def root():
@@ -31,39 +56,83 @@ def root():
     }
 
 
+# =========================
+# ASK QUESTION
+# =========================
+
 @app.post(
     "/ask",
     response_model=QueryResponse
 )
 def ask_question(request: QuestionRequest):
 
-    # Original user question
+    # Original question
     question = request.question
 
-    # Step 1: Query enhancement
+    # --------------------------------
+    # STEP 1: QUERY ENHANCEMENT
+    # --------------------------------
+
     enhanced_query = enhance_query(question)
 
-    # Step 2: Retrieve Top 10
-    top_10 = retrieve_top_10(enhanced_query)
+    # --------------------------------
+    # STEP 2: RETRIEVE TOP 10
+    # --------------------------------
+    # Top 10 are used internally only
 
-    # Step 3: Rerank Top 10 → Top 3
+    top_10 = retrieve_top_10(
+        enhanced_query
+    )
+
+    # --------------------------------
+    # STEP 3: RERANK TOP 10 → TOP 3
+    # --------------------------------
+
     top_3 = rerank_documents(
         enhanced_query,
         top_10,
         top_n=3
     )
 
-    # Step 4: Build prompt
+    # --------------------------------
+    # STEP 4: BUILD PROMPT
+    # --------------------------------
+
     prompt = build_prompt(
         question,
         top_3
     )
 
-    # Step 5: Generate final answer
+    # --------------------------------
+    # STEP 5: GENERATE ANSWER
+    # --------------------------------
+
     answer = generate_answer(prompt)
 
-    # Only question and answer are returned
+    # --------------------------------
+    # STEP 6: PREPARE ONLY TOP 3
+    # --------------------------------
+
+    final_chunks = []
+
+    for index, chunk in enumerate(top_3):
+
+        final_chunks.append(
+            RetrievedChunk(
+                rank=index + 1,
+                page=chunk["page"],
+                source=chunk["source"],
+                score=chunk["retrieval_score"],
+                text=chunk["text"]
+            )
+        )
+
+    # --------------------------------
+    # FINAL RESPONSE
+    # --------------------------------
+
     return QueryResponse(
         question=question,
-        answer=answer
+        answer=answer,
+        reranked_chunks=final_chunks
     )

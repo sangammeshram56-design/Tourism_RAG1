@@ -19,6 +19,11 @@ class QuestionRequest(BaseModel):
     question: str
 
 
+class QueryResponse(BaseModel):
+    question: str
+    answer: str
+
+
 @app.get("/")
 def root():
     return {
@@ -26,7 +31,10 @@ def root():
     }
 
 
-@app.post("/ask")
+@app.post(
+    "/ask",
+    response_model=QueryResponse
+)
 def ask_question(request: QuestionRequest):
 
     # Original user question
@@ -54,10 +62,8 @@ def ask_question(request: QuestionRequest):
     # Step 5: Generate final answer
     answer = generate_answer(prompt)
 
-    return {
-        "question": question,
-        "enhanced_query": enhanced_query,
-        "answer": answer,
-        "retrieved_chunks": top_10,
-        "reranked_chunks": top_3
-    }
+    # Only question and answer are returned
+    return QueryResponse(
+        question=question,
+        answer=answer
+    )

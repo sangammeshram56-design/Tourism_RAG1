@@ -280,18 +280,10 @@ The Tourism RAG system can be used for questions such as:
 
 3. What is the best time to visit Mumbai?
 
+4.What are the major types of tourism available in Maharashtra?
+
+5.What are the major challenges faced by tourism development in Maharashtra?
+
 The response depends on the information available in the project's knowledge base.
 
 ---
-
-
-
-
-
-
-
-
-RAG Questions
-What are the major types of tourism available in Maharashtra?
-
-What are the major challenges faced by tourism development in Maharashtra?
